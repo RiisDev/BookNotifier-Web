@@ -1,0 +1,18 @@
+<MudItem xs="12" sm="6" md="3">
+    <div class="stat-card">
+        <div class="stat-icon stat-@Color">
+            <MudIcon Icon="@Icon" />
+        </div>
+        <div>
+            <div class="stat-value">@Value</div>
+            <div class="stat-label">@Label</div>
+        </div>
+    </div>
+</MudItem>
+
+@code {
+    [Parameter, EditorRequired] public required string Icon { get; set; }
+    [Parameter, EditorRequired] public required string Value { get; set; }
+    [Parameter, EditorRequired] public required string Label { get; set; }
+    [Parameter, EditorRequired] public required string Color { get; set; }
+}

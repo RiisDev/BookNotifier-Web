@@ -1,0 +1,129 @@
+<div class="settings-card" style="margin-bottom:16px;border-top:3px solid @Config.Color">
+    <div class="settings-section-header" style="color:@Config.Color">
+        <span class="plat-dot" style="background:@Config.Color"></span>
+        @Config.Name
+        @if (!Enabled)
+        {
+            <span class="disabled-badge">disabled</span>
+        }
+    </div>
+    <div class="settings-body">
+
+        <div class="settings-row">
+            @foreach ((string key, string label, string envKey, string hint, string placeholder, SettingsFieldType settingsFieldType, bool optional, bool _) in Config.Fields.Where(f => !f.FullWidth))
+            {
+                <div class="settings-field" style="min-width:180px;max-width:260px">
+                    <label class="settings-label">
+                        @label
+                        @if (optional) { <span class="optional">(optional)</span> }
+                        else             { <span class="required">*</span>           }
+                    </label>
+                    <div class="settings-hint">
+                        @if (!string.IsNullOrEmpty(hint)) {
+                            @hint
+                            <span> — </span> }
+                        <code class="code-inline">@envKey</code>
+                    </div>
+                    @if (settingsFieldType == SettingsFieldType.Password)
+                    {
+                        <div class="pw-row">
+                            <input class="settings-input"
+                                   type="@(_visible.Contains(key) ? "text" : "password")"
+                                   placeholder="@placeholder"
+                                   value="@Config.Values.GetValueOrDefault(key, "")"
+                                   @onchange="e => Config.Values[key] = e.Value?.ToString() ?? string.Empty" />
+                            <button class="pw-toggle" type="button" @onclick="() => ToggleVisible(key)">
+                                <MudIcon Icon="@(_visible.Contains(key) ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                         Size="Size.Small" />
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <input class="settings-input"
+                               placeholder="@placeholder"
+                               value="@Config.Values.GetValueOrDefault(key, "")"
+                               @onchange="e => Config.Values[key] = e.Value?.ToString() ?? string.Empty" />
+                    }
+                </div>
+            }
+
+            <div class="settings-field interval-field">
+                <label class="settings-label">Check Interval</label>
+                <div class="settings-hint">
+                    = @MsToHuman(Config.RecheckMs) — <code class="code-inline">@Config.RecheckEnvKey</code>
+                </div>
+                <div class="interval-row">
+                    <input class="settings-input" type="number" min="10000" step="1000"
+                           style="max-width:130px"
+                           value="@Config.RecheckMs"
+                           @onchange="e => { if (int.TryParse(e.Value?.ToString(), out int v)) Config.RecheckMs = v; }" />
+                    <span class="interval-unit">ms</span>
+                </div>
+            </div>
+        </div>
+
+        @foreach ((string key, string label, string envKey, string hint, string placeholder, SettingsFieldType settingsFieldType, bool optional, bool _) in Config.Fields.Where(f => f.FullWidth))
+        {
+            <div class="settings-row">
+                <div class="settings-field" style="flex:1;min-width:260px">
+                    <label class="settings-label">
+                        @label
+                        @if (optional) { <span class="optional">(optional)</span> }
+                        else             { <span class="required">*</span>           }
+                    </label>
+                    <div class="settings-hint">
+                        @if (!string.IsNullOrEmpty(hint)) {
+                            @hint
+                            <span> — </span> }
+                        <code class="code-inline">@envKey</code>
+                    </div>
+                    @if (settingsFieldType == SettingsFieldType.Password)
+                    {
+                        <div class="pw-row">
+                            <input class="settings-input"
+                                   type="@(_visible.Contains(key) ? "text" : "password")"
+                                   placeholder="@placeholder"
+                                   value="@Config.Values.GetValueOrDefault(key, "")"
+                                   @onchange="e => Config.Values[key] = e.Value?.ToString() ?? string.Empty" />
+                            <button class="pw-toggle" type="button" @onclick="() => ToggleVisible(key)">
+                                <MudIcon Icon="@(_visible.Contains(key) ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                         Size="Size.Small" />
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <input class="settings-input"
+                               placeholder="@placeholder"
+                               value="@Config.Values.GetValueOrDefault(key, "")"
+                               @onchange="e => Config.Values[key] = e.Value?.ToString() ?? string.Empty" />
+                    }
+                </div>
+            </div>
+        }
+
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required PlatformSettingsConfig Config { get; set; }
+    [Parameter] public bool Enabled { get; set; } = true;
+
+    private readonly HashSet<string> _visible = [];
+
+    private void ToggleVisible(string key)
+    {
+        if (!_visible.Remove(key)) _visible.Add(key);
+    }
+
+    private static string MsToHuman(int ms)
+    {
+        if (ms < 1000) return $"{ms} ms";
+        int sec = ms / 1000;
+        if (sec < 60) return $"{sec} second{(sec == 1 ? "" : "s")}";
+        int min = sec / 60;
+        int rem = sec % 60;
+        return rem == 0 ? $"{min} minute{(min == 1 ? "" : "s")}" : $"{min}m {rem}s";
+    }
+}

@@ -1,0 +1,326 @@
+@page "/settings"
+@using System.Text
+@using BookNotifier_Web.Data
+@rendermode InteractiveServer
+@inject SettingsService SettingsService
+@inject DatabaseService Db
+@inject BookNotifierService BookService
+@inject NavigationManager Nav
+
+<PageTitle>Settings — BookNotifier</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="py-5 px-4">
+
+    <div class="settings-header">
+        <div class="settings-title">
+            <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Medium" />
+            <span>Settings</span>
+        </div>
+        <div class="settings-actions">
+            @if (_saved)
+            {
+                <span class="save-confirm">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" />
+                    Saved
+                </span>
+            }
+            <button class="btn-primary-save" @onclick="Save">Save Changes</button>
+        </div>
+    </div>
+
+    @if (_restartRequired)
+    {
+        <div class="restart-banner">
+            <MudIcon Icon="@Icons.Material.Filled.RestartAlt" Size="Size.Small" />
+            <span>Settings saved to database. Restart the application for changes to take effect.</span>
+        </div>
+    }
+
+    <div class="settings-card" style="margin-bottom:16px">
+        <div class="settings-section-header">
+            <MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" />
+            <span>General</span>
+        </div>
+        <div class="settings-body">
+
+            <div class="settings-field">
+                <div class="settings-label">Active Notifiers</div>
+                <div class="settings-hint">Platforms to monitor — <code class="code-inline">NOTIFIER</code></div>
+                <div class="notifier-toggles">
+                    @foreach (PlatformSettingsConfig p in _platforms)
+                    {
+                        bool active = _s.EnabledNotifiers.Contains(p.NotifierKey);
+                        <button class="notifier-chip @(active ? "active" : "")"
+                                style="@(active ? $"border-color:{p.Color};background:{p.Color}1a;color:{p.Color}" : "")"
+                                @onclick="() => ToggleNotifier(p.NotifierKey)">
+                            <span class="notifier-dot" style="background:@p.Color"></span>
+                            @p.Name
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <div class="settings-row">
+                <div class="settings-field" style="flex:1;min-width:260px">
+                    <label class="settings-label">Discord Webhook URL <span class="required">*</span></label>
+                    <div class="settings-hint">All notifications are sent here — <code class="code-inline">WEBHOOK</code></div>
+                    <input class="settings-input" type="url"
+                           placeholder="https://discord.com/api/webhooks/…"
+                           @bind="_s.WebhookUrl" />
+                </div>
+                <div class="settings-field" style="min-width:240px;max-width:360px">
+                    <label class="settings-label">FlareSolverr URL</label>
+                    <div class="settings-hint">For Cloudflare-protected services — <code class="code-inline">FLARESOLVER_URL</code></div>
+                    <input class="settings-input" type="url"
+                           placeholder="http://localhost:8191/v1"
+                           @bind="_s.FlareSolverUrl" />
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    @foreach (PlatformSettingsConfig platform in _platforms)
+    {
+        <PlatformSettingsCard Config="@platform"
+                              Enabled="@_s.EnabledNotifiers.Contains(platform.NotifierKey)" />
+    }
+
+    <div class="settings-card">
+        <div class="settings-section-header">
+            <MudIcon Icon="@Icons.Material.Filled.Terminal" Size="Size.Small" />
+            <span>.env Preview</span>
+            <div style="flex:1"></div>
+            <button class="btn-copy" @onclick="CopyEnv" type="button">
+                <MudIcon Icon="@(_copied ? Icons.Material.Filled.Check : Icons.Material.Filled.ContentCopy)"
+                         Size="Size.Small" />
+                @(_copied ? "Copied" : "Copy")
+            </button>
+        </div>
+        <div class="settings-body">
+            <div class="settings-hint" style="margin-bottom:8px">
+                Paste into your <code class="code-inline">.env</code> file and re-run the container.
+                Only enabled platforms are included.
+            </div>
+            <pre class="env-preview">@GenerateEnv()</pre>
+        </div>
+    </div>
+
+    <div class="settings-card danger-zone" style="margin-top:16px">
+        <div class="settings-section-header">
+            <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Size="Size.Small" />
+            <span>Danger Zone</span>
+        </div>
+        <div class="settings-body">
+            <div class="settings-field">
+                <div class="settings-label">Reset Everything</div>
+                <div class="settings-hint">
+                    Permanently deletes every tracked book, chapter, log, and saved setting — the app
+                    restarts at first-run Setup. This cannot be undone.
+                </div>
+
+                @if (_resetDone)
+                {
+                    <span class="save-confirm">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" />
+                        Reset complete — redirecting…
+                    </span>
+                }
+                else if (_confirmingReset)
+                {
+                    <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                        <span style="color:#cf6679;font-size:0.85rem;font-weight:600">Are you sure? This deletes everything.</span>
+                        <button class="btn-danger-confirm" @onclick="ResetEverythingAsync" disabled="@_resetting">
+                            @(_resetting ? "Resetting…" : "Yes, delete everything")
+                        </button>
+                        <button class="btn-copy" @onclick="() => _confirmingReset = false" disabled="@_resetting">Cancel</button>
+                    </div>
+                }
+                else
+                {
+                    <button class="btn-danger" style="margin-top:8px" @onclick="() => _confirmingReset = true">
+                        <MudIcon Icon="@Icons.Material.Filled.DeleteForever" Size="Size.Small" />
+                        Reset Everything
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+</MudContainer>
+
+@code {
+    private AppSettings _s = new();
+    private List<PlatformSettingsConfig> _platforms = [];
+    private bool _saved;
+    private bool _copied;
+    private bool _restartRequired;
+    private bool _confirmingReset;
+    private bool _resetting;
+    private bool _resetDone;
+
+    protected override void OnInitialized()
+    {
+        _s = SettingsService.Clone();
+        _platforms = BuildPlatforms(_s);
+    }
+
+    private static List<PlatformSettingsConfig> BuildPlatforms(AppSettings s) =>
+    [
+        new()
+        {
+            Name = "GoodReads", Color = PageLogic.PlatColor(Platform.GoodReads), NotifierKey = "goodreads",
+            RecheckMs = s.GoodReadsRecheckMs, RecheckEnvKey = "GOODREADS_RECHECK_MS",
+            Fields =
+            [
+                new PlatformFieldDef("userId",   "User ID",   "GOODREADS_USER_ID",   "Found in your profile URL", "123456789"),
+                new PlatformFieldDef("shelfTag", "Shelf Tag", "GOODREADS_SHELF_TAG", "Shelf to watch",             "to-read"),
+            ],
+            Values = new Dictionary<string, string> { ["userId"] = s.GoodReadsUserId, ["shelfTag"] = s.GoodReadsShelfTag },
+            SaveTo = (settings, cfg) =>
+            {
+                settings.GoodReadsRecheckMs = cfg.RecheckMs;
+                settings.GoodReadsUserId    = cfg.Values.GetValueOrDefault("userId",   "");
+                settings.GoodReadsShelfTag  = cfg.Values.GetValueOrDefault("shelfTag", "");
+            },
+        },
+        new()
+        {
+            Name = "ScribbleHub", Color = PageLogic.PlatColor(Platform.ScribbleHub), NotifierKey = "scribblehub",
+            RecheckMs = s.ScribbleHubRecheckMs, RecheckEnvKey = "SCRIBBLEHUB_RECHECK_MS",
+            Fields =
+            [
+                new PlatformFieldDef("userId", "User ID", "SCRIBBLEHUB_USERID", "Numeric ID from your public reading list URL", "123456"),
+            ],
+            Values = new Dictionary<string, string> { ["userId"] = s.ScribbleHubUserId },
+            SaveTo = (settings, cfg) =>
+            {
+                settings.ScribbleHubRecheckMs = cfg.RecheckMs;
+                settings.ScribbleHubUserId    = cfg.Values.GetValueOrDefault("userId", "");
+            },
+        },
+        new()
+        {
+            Name = "Literotica", Color = PageLogic.PlatColor(Platform.Literotica), NotifierKey = "literotica",
+            RecheckMs = s.LiteroticaRecheckMs, RecheckEnvKey = "LITEROTICA_RECHECK_MS",
+            Fields =
+            [
+                new PlatformFieldDef("username", "Username", "LITEROTICA_USERNAME", Placeholder: "your_username"),
+                new PlatformFieldDef("password", "Password", "LITEROTICA_PASSWORD", Placeholder: "••••••••", Type: SettingsFieldType.Password),
+            ],
+            Values = new Dictionary<string, string> { ["username"] = s.LiteroticaUsername, ["password"] = s.LiteroticaPassword },
+            SaveTo = (settings, cfg) =>
+            {
+                settings.LiteroticaRecheckMs = cfg.RecheckMs;
+                settings.LiteroticaUsername  = cfg.Values.GetValueOrDefault("username", "");
+                settings.LiteroticaPassword  = cfg.Values.GetValueOrDefault("password", "");
+            },
+        },
+        new()
+        {
+            Name = "Royal Road", Color = PageLogic.PlatColor(Platform.RoyalRoad), NotifierKey = "royalroad",
+            RecheckMs = s.RoyalRoadRecheckMs, RecheckEnvKey = "ROYALROAD_RECHECK_MS",
+            Fields =
+            [
+                new PlatformFieldDef("userId", "User ID", "ROYALROAD_USERID", "Found in your profile URL", "123456"),
+            ],
+            Values = new Dictionary<string, string> { ["userId"] = s.RoyalRoadUserId },
+            SaveTo = (settings, cfg) =>
+            {
+                settings.RoyalRoadRecheckMs = cfg.RecheckMs;
+                settings.RoyalRoadUserId    = cfg.Values.GetValueOrDefault("userId", "");
+            },
+        },
+        new()
+        {
+            Name = "Archive of Our Own", Color = PageLogic.PlatColor(Platform.Ao3), NotifierKey = "aothree",
+            RecheckMs = s.Ao3RecheckMs, RecheckEnvKey = "AO3_RECHECK_MS",
+            Fields =
+            [
+                new PlatformFieldDef("username",   "Username",   "AO3_USERNAME",   Placeholder: "your_username"),
+                new PlatformFieldDef("pseudoname", "Pseudonym",  "AO3_PSEUDO",
+                    Hint: "If bookmarks are under a pseudonym — leave blank to use username",
+                    Placeholder: "pseudo_name", Optional: true),
+            ],
+            Values = new Dictionary<string, string>
+            {
+                ["username"]   = s.Ao3Username,
+                ["pseudoname"] = s.Ao3Pseudoname,
+            },
+            SaveTo = (settings, cfg) =>
+            {
+                settings.Ao3RecheckMs   = cfg.RecheckMs;
+                settings.Ao3Username    = cfg.Values.GetValueOrDefault("username",   "");
+                settings.Ao3Pseudoname  = cfg.Values.GetValueOrDefault("pseudoname", "");
+            },
+        },
+    ];
+
+    private void ToggleNotifier(string key)
+    {
+        if (_s.EnabledNotifiers.Contains(key)) _s.EnabledNotifiers.Remove(key);
+        else _s.EnabledNotifiers.Add(key);
+    }
+
+    private async Task Save()
+    {
+        foreach (PlatformSettingsConfig p in _platforms)
+            p.SaveTo(_s, p);
+        await SettingsService.SaveAsync(_s);
+        _saved = true;
+        _restartRequired = true;
+        StateHasChanged();
+        await Task.Delay(2200);
+        _saved = false;
+        StateHasChanged();
+    }
+
+    private async Task ResetEverythingAsync()
+    {
+        _resetting = true;
+        StateHasChanged();
+
+        await Db.ResetAllAsync();
+        await SettingsService.LoadAsync();
+        await BookService.InitializeAsync();
+
+        _resetting = false;
+        _resetDone = true;
+        StateHasChanged();
+
+        await Task.Delay(1200);
+        Nav.NavigateTo("/setup", forceLoad: true);
+    }
+
+    private async Task CopyEnv()
+    {
+        _copied = true;
+        StateHasChanged();
+        await Task.Delay(1800);
+        _copied = false;
+        StateHasChanged();
+    }
+
+    private string GenerateEnv()
+    {
+        StringBuilder sb = new();
+        sb.AppendLine($"NOTIFIER={string.Join(",", _s.EnabledNotifiers.Select(CliEnv.ToCliNotifierKey))}");
+        sb.AppendLine($"WEBHOOK={_s.WebhookUrl}");
+
+        if (!string.IsNullOrWhiteSpace(_s.FlareSolverUrl)) sb.AppendLine($"FLARESOLVER_URL={_s.FlareSolverUrl}");
+
+        foreach (PlatformSettingsConfig p in _platforms.Where(p => _s.EnabledNotifiers.Contains(p.NotifierKey)))
+        {
+            sb.AppendLine();
+            sb.AppendLine($"# {p.Name}");
+            sb.AppendLine($"{p.RecheckEnvKey}={p.RecheckMs}");
+            foreach (PlatformFieldDef f in p.Fields)
+            {
+                string val = p.Values.GetValueOrDefault(f.Key, "");
+                if (f.Optional && string.IsNullOrWhiteSpace(val)) continue;
+                sb.AppendLine($"{f.EnvKey}={val}");
+            }
+        }
+        return sb.ToString().TrimEnd();
+    }
+}

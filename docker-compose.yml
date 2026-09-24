@@ -1,0 +1,38 @@
+services:
+
+  booknotifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: booknotifier
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - booknotifier_data:/app/data
+      - booknotifier_cli_data:/app/cli/data
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8080/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # FlareSolverr — needed for ScribbleHub and AO3 (Cloudflare-protected).
+  # The setup wizard auto-detects this and fills it in as: http://flaresolverr:8191/v1
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    ports:
+      - "8191:8191"
+    environment:
+      LOG_LEVEL: info
+
+volumes:
+  booknotifier_data:
+    driver: local
+  booknotifier_cli_data:
+    driver: local

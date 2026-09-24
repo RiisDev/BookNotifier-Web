@@ -1,0 +1,18 @@
+<button class="filter-chip @(Value == null ? "active" : "")"
+        @onclick="() => OnChange.InvokeAsync(null)">@AllLabel</button>
+<button class="filter-chip fc-gr  @(Value == Platform.GoodReads   ? "active" : "")"
+        @onclick="() => OnChange.InvokeAsync(Platform.GoodReads)">GoodReads</button>
+<button class="filter-chip fc-sh  @(Value == Platform.ScribbleHub ? "active" : "")"
+        @onclick="() => OnChange.InvokeAsync(Platform.ScribbleHub)">ScribbleHub</button>
+<button class="filter-chip fc-rr  @(Value == Platform.RoyalRoad   ? "active" : "")"
+        @onclick="() => OnChange.InvokeAsync(Platform.RoyalRoad)">RoyalRoad</button>
+<button class="filter-chip fc-lit @(Value == Platform.Literotica  ? "active" : "")"
+        @onclick="() => OnChange.InvokeAsync(Platform.Literotica)">Literotica</button>
+<button class="filter-chip fc-ao3 @(Value == Platform.Ao3         ? "active" : "")"
+        @onclick="() => OnChange.InvokeAsync(Platform.Ao3)">AO3</button>
+
+@code {
+    [Parameter] public Platform? Value { get; set; }
+    [Parameter] public EventCallback<Platform?> OnChange { get; set; }
+    [Parameter] public string AllLabel { get; set; } = "All";
+}

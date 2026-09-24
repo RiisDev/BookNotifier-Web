@@ -1,0 +1,145 @@
+@page "/"
+@rendermode InteractiveServer
+@inject BookNotifierService Service
+
+<PageTitle>Dashboard - BookNotifier</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-5 px-4">
+
+    <MudGrid Spacing="3" Class="mb-5">
+        <StatCard Icon="@Icons.Material.Filled.LibraryBooks" Value="@Service.Books.Count.ToString()" Label="Books Tracked"   Color="purple" />
+        <StatCard Icon="@Icons.Material.Filled.Update" Value="@TodayCount.ToString()" Label="Updates Today"   Color="green"  />
+        <StatCard Icon="@Icons.Material.Filled.Hub" Value="@ActivePlatforms.ToString()" Label="Active Platforms" Color="blue"  />
+        <StatCard Icon="@Icons.Material.Filled.NotificationsActive" Value="@UnreadCount.ToString()"  Label="Unread Alerts"   Color="orange" />
+    </MudGrid>
+
+    <MudGrid Spacing="3" Class="mb-5">
+
+        <MudItem xs="12" md="7">
+            <div class="section-card full-height">
+                <div class="section-header">
+                    <MudIcon Icon="@Icons.Material.Filled.Timeline" Size="Size.Small" />
+                    <span class="ml-2">Recent Activity</span>
+                    <MudSpacer />
+                    <MudButton Variant="Variant.Text" Size="Size.Small" Href="/activity" Class="view-all-btn">View All</MudButton>
+                </div>
+                <div class="activity-list">
+                    @foreach (NotificationEvent evt in RecentEvents)
+                    {
+                        <ActivityItem Event="@evt" ShowPlatformBadge="true" />
+                    }
+                </div>
+            </div>
+        </MudItem>
+
+        <MudItem xs="12" md="5">
+            <div class="section-card">
+                <div class="section-header">
+                    <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Small" />
+                    <span class="ml-2">Upcoming Releases</span>
+                    <MudSpacer />
+                    <MudButton Variant="Variant.Text" Size="Size.Small" Href="/calendar" Class="view-all-btn">Full Calendar</MudButton>
+                </div>
+                <div class="upcoming-grid">
+                    @foreach (BookEntry b in UpcomingBooks)
+                    {
+                        <div class="uc-card" style="border-top:2px solid @PageLogic.PlatColor(b.Platform)">
+                            <div class="uc-date">@b.NextExpected!.Value.ToString("ddd, MMM d")</div>
+                            <div class="uc-title" title="@b.Title">@b.Title</div>
+                            <div class="uc-meta">
+                                <span class="uc-dot" style="background:@PageLogic.PlatColor(b.Platform)"></span>
+                                <span style="color:@PageLogic.PlatColor(b.Platform)">@b.Platform</span>
+                                <span style="color:rgba(255,255,255,0.2)">·</span>
+                                <span>@b.Author</span>
+                            </div>
+                        </div>
+                    }
+                    @if (!UpcomingBooks.Any())
+                    {
+                        <EmptyState Text="No upcoming releases" Style="grid-column:1/-1;padding:24px 0" />
+                    }
+                </div>
+                @{ int extra = Service.Books.Count(b => b.NextExpected.HasValue && b.NextExpected.Value.Date >= DateTime.Today) - 8; }
+                @if (extra > 0)
+                {
+                    <div class="uc-footer">
+                        +@extra more &#8212; <a href="/calendar" style="color:#6c5ce7;text-decoration:none;font-weight:500">view all</a>
+                    </div>
+                }
+            </div>
+        </MudItem>
+    </MudGrid>
+
+    <div class="section-label">Platform Status</div>
+    <MudGrid Spacing="3" Class="mb-5">
+        @foreach (PlatformStatus p in Service.Platforms)
+        {
+            <MudItem xs="12" sm="6" md="3">
+                <a href="/@PageLogic.PlatKey(p.Platform)" class="platform-card-link">
+                <div class="platform-card" style="border-top:3px solid @PageLogic.PlatColor(p.Platform)">
+                    <div class="plat-header">
+                        <span class="plat-name">@p.Platform</span>
+                        <div class="plat-status @(p.IsRunning ? "ps-run" : p.ErrorMessage != null ? "ps-err" : "ps-stop")">
+                            <span class="ps-dot"></span>
+                            @(p.IsRunning ? "Running" : p.ErrorMessage != null ? "Error" : "Stopped")
+                        </div>
+                    </div>
+                    <div class="plat-stats">
+                        <div class="ps">
+                            <span class="ps-val">@p.TrackedItems</span>
+                            <span class="ps-lbl">Tracked</span>
+                        </div>
+                        <div class="ps">
+                            <span class="ps-val" style="color:#00e676">@p.NotificationsToday</span>
+                            <span class="ps-lbl">Today</span>
+                        </div>
+                        <div class="ps">
+                            <span class="ps-val">@PageLogic.FmtInterval(p.CheckInterval)</span>
+                            <span class="ps-lbl">Interval</span>
+                        </div>
+                    </div>
+                    @if (p.LastCheck.HasValue)
+                    {
+                        <div class="plat-check">Last check: @PageLogic.RelTime(p.LastCheck.Value)</div>
+                    }
+                    @if (p.ErrorMessage != null)
+                    {
+                        <div class="plat-error">@p.ErrorMessage</div>
+                    }
+                </div>
+                </a>
+            </MudItem>
+        }
+    </MudGrid>
+
+    <div class="section-card">
+        <div class="section-header">
+            <MudIcon Icon="@Icons.Material.Filled.AutoStories" Size="Size.Small" />
+            <span class="ml-2">Latest Updates</span>
+            <MudSpacer />
+            <MudButton Variant="Variant.Text" Size="Size.Small" Href="/library" Class="view-all-btn">View Library</MudButton>
+        </div>
+        <div class="poster-scroll">
+            @foreach (BookEntry b in LatestBooks)
+            {
+                <BookPosterCard Book="@b" ShowPlatformTag="true" />
+            }
+        </div>
+    </div>
+
+</MudContainer>
+
+@code {
+    private int TodayCount => Service.GetTodayEvents().Count();
+    private int ActivePlatforms => Service.Platforms.Count(p => p is { IsEnabled: true, IsRunning: true });
+    private int UnreadCount => Service.GetUnreadCount();
+    
+    private IEnumerable<NotificationEvent> RecentEvents => Service.GetRecentEvents(10);
+
+    private IEnumerable<BookEntry> LatestBooks => Service.Books.OrderByDescending(b => b.LastUpdated).Take(12);
+
+    private IEnumerable<BookEntry> UpcomingBooks => Service.Books
+            .Where(b => b.NextExpected.HasValue && b.NextExpected.Value.Date >= DateTime.Today)
+            .OrderBy(b => b.NextExpected)
+            .Take(8);
+}

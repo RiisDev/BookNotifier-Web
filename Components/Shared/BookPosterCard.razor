@@ -1,0 +1,78 @@
+<a href="@Book.Url" target="@(Book.Url != null ? "_blank" : null)" rel="noopener noreferrer" class="poster-card-link">
+<div class="poster-card" style="@(FullWidth ? "width:100%" : null)">
+    <BookCover CoverUrl="@Book.CoverUrl"
+               Gradient="@ActualGradient"
+               Letter="@Book.Title[0]"
+               DarkLetter="@DarkLetter"
+               Style="@(FullWidth ? "width:100%;height:175px" : null)">
+        @if (Book.HasUnread || Book.NewChapters > 0)              { <div class="badge-new">NEW</div> }
+        @if (ShowHiatusBadge && Book.Status == BookStatus.Hiatus) { <div class="badge-hiatus">HIATUS</div> }
+        @if (Book.Status == BookStatus.Completed)                 { <div class="badge-done">DONE</div> }
+    </BookCover>
+    <div class="poster-info">
+        <div class="poster-title" title="@Book.Title">@Book.Title</div>
+        <div class="poster-author">@Book.Author</div>
+        @{
+            bool hasChapters = Book.TotalChapters.HasValue && ChapterFormat != null;
+            bool hasGenre    = !string.IsNullOrEmpty(Book.Genre);
+        }
+        @if (hasChapters || hasGenre || ShowPlatformTag)
+        {
+            <div class="poster-meta">
+                @if (hasChapters)
+                {
+                    <span>@string.Format(ChapterFormat!, Book.TotalChapters)</span>
+                    @if (hasGenre || ShowPlatformTag) { <span class="dot-sep">·</span> }
+                }
+                @if (hasGenre)
+                {
+                    <span>@Book.Genre</span>
+                }
+                else if (ShowPlatformTag)
+                {
+                    <span style="color:@PageLogic.PlatColor(Book.Platform)">@Book.Platform</span>
+                }
+            </div>
+        }
+        @if (Book.Rating.HasValue)
+        {
+            <div class="poster-rating">&#x2605; @Book.Rating.Value.ToString("F1")</div>
+        }
+        @if (ShowLastUpdated)
+        {
+            <div class="poster-meta" style="margin-top:3px;color:rgba(255,255,255,0.28)">
+                @PageLogic.RelTime(Book.LastUpdated)
+            </div>
+        }
+        @if (Book.NextExpected.HasValue && Book.Status != BookStatus.Completed)
+        {
+            <div class="poster-expected @(IsOverdue ? "overdue" : "")">
+                @(IsOverdue
+                    ? $"Overdue ({PageLogic.RelTime(Book.NextExpected.Value)})"
+                    : IsExpectedToday
+                        ? "Expected today"
+                        : $"New chapter {PageLogic.RelTimeFuture(Book.NextExpected.Value)}")
+            </div>
+        }
+    </div>
+</div>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public required BookEntry Book { get; set; }
+    [Parameter] public string? Gradient { get; set; }
+    [Parameter] public string ChapterFormat { get; set; } = "Ch.{0}";
+    [Parameter] public bool DarkLetter { get; set; }
+    [Parameter] public bool ShowHiatusBadge { get; set; } = true;
+    [Parameter] public bool FullWidth { get; set; }
+    [Parameter] public bool ShowLastUpdated { get; set; }
+    [Parameter] public bool ShowPlatformTag { get; set; } = true;
+
+    private string ActualGradient => Gradient ?? PageLogic.PlatGradient(Book.Platform);
+
+    // We only know the expected release *day*, not the hour — a prediction landing on today at
+    // some specific time (e.g. 7am) shouldn't read "overdue" the moment that time passes. Only
+    // treat it as overdue once the whole calendar day has gone by.
+    private bool IsExpectedToday => Book.NextExpected.HasValue && Book.NextExpected.Value.Date == DateTime.Today;
+    private bool IsOverdue => Book.NextExpected.HasValue && Book.NextExpected.Value.Date < DateTime.Today;
+}

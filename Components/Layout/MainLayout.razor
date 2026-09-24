@@ -1,0 +1,89 @@
+@inherits LayoutComponentBase
+@inject SettingsService SettingsService
+@inject NavigationManager Nav
+
+<MudThemeProvider Theme="_theme" IsDarkMode="true" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="bn-app">
+    <header class="bn-navbar">
+        <a href="/" class="bn-brand">
+            <span class="bn-brand-icon">&#x1F4DA;</span>
+            <span class="bn-brand-text">BookNotifier</span>
+        </a>
+        <button class="bn-nav-toggle" @onclick="() => _navOpen = !_navOpen" aria-label="Toggle navigation">
+            <MudIcon Icon="@(_navOpen ? Icons.Material.Filled.Close : Icons.Material.Filled.Menu)" Size="Size.Small" />
+        </button>
+        <div class="bn-nav-links @(_navOpen ? "open" : "")">
+            <nav class="bn-main-nav">
+                <NavLink href="/" Match="NavLinkMatch.All" class="bn-nav-link" @onclick="CloseNav">Dashboard</NavLink>
+                <NavLink href="/library" class="bn-nav-link" @onclick="CloseNav">Library</NavLink>
+                <NavLink href="/calendar" class="bn-nav-link" @onclick="CloseNav">Calendar</NavLink>
+                <NavLink href="/activity" class="bn-nav-link" @onclick="CloseNav">Activity</NavLink>
+            </nav>
+            <span class="bn-vr"></span>
+            <nav class="bn-plat-nav">
+                <NavLink href="/goodreads" class="bn-nav-link bn-gr" @onclick="CloseNav">GoodReads</NavLink>
+                <NavLink href="/scribblehub" class="bn-nav-link bn-sh" @onclick="CloseNav">ScribbleHub</NavLink>
+                <NavLink href="/royalroad" class="bn-nav-link bn-rr" @onclick="CloseNav">RoyalRoad</NavLink>
+                <NavLink href="/literotica" class="bn-nav-link bn-lit" @onclick="CloseNav">Literotica</NavLink>
+                <NavLink href="/ao3" class="bn-nav-link bn-ao3" @onclick="CloseNav">AO3</NavLink>
+            </nav>
+            <a href="/settings" class="bn-nav-link bn-settings-mobile" @onclick="CloseNav">Settings</a>
+        </div>
+        <div class="bn-nav-spacer"></div>
+        <a href="/settings" class="bn-icon-btn bn-settings-desktop" title="Settings">
+            <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Small" />
+        </a>
+    </header>
+    <main class="bn-main">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">&#x2715;</span>
+</div>
+
+@code {
+    private bool _navOpen;
+
+    private void CloseNav() => _navOpen = false;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && !SettingsService.IsSetupComplete)
+            Nav.NavigateTo("/setup", replace: true);
+    }
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#6c5ce7",
+            Secondary = "#00cec9",
+            Background = "#141414",
+            BackgroundGray = "#1c1c1c",
+            Surface = "#1c1c1c",
+            DrawerBackground = "#0a0a0a",
+            TextPrimary = "rgba(255,255,255,0.87)",
+            TextSecondary = "rgba(255,255,255,0.54)",
+            ActionDefault = "rgba(255,255,255,0.54)",
+            ActionDisabled = "rgba(255,255,255,0.26)",
+            ActionDisabledBackground = "rgba(255,255,255,0.12)",
+            Divider = "rgba(255,255,255,0.1)",
+            TableLines = "rgba(255,255,255,0.07)",
+            TableHover = "rgba(255,255,255,0.04)",
+            Dark = "#1c1c1c",
+            DarkDarken = "#0a0a0a",
+            Success = "#00e676",
+            Warning = "#ffab40",
+            Error = "#cf6679",
+            Info = "#40c4ff",
+        }
+    };
+}

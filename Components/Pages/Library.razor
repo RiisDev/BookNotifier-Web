@@ -1,0 +1,80 @@
+@page "/library"
+@rendermode InteractiveServer
+@inject BookNotifierService Service
+
+<PageTitle>Library — BookNotifier</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-5 px-4">
+
+    <div class="plat-page-header">
+        <div class="plat-page-title">
+            <MudIcon Icon="@Icons.Material.Filled.LibraryBooks" />
+            Library
+        </div>
+        <div class="plat-stat-row">
+            <div class="plat-stat">
+                <span class="plat-stat-val">@Filtered.Count()</span>
+                <span class="plat-stat-lbl">Showing</span>
+            </div>
+            <div class="plat-stat">
+                <span class="plat-stat-val">@Service.Books.Count(b => b.HasUnread || b.NewChapters > 0)</span>
+                <span class="plat-stat-lbl">With Updates</span>
+            </div>
+            <div class="plat-stat">
+                <span class="plat-stat-val">@Service.Books.Count(b => b.Status == BookStatus.Ongoing)</span>
+                <span class="plat-stat-lbl">Ongoing</span>
+            </div>
+            <div class="plat-stat">
+                <span class="plat-stat-val">@Service.Books.Count(b => b.Status == BookStatus.Hiatus)</span>
+                <span class="plat-stat-lbl">Hiatus</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="library-filters">
+            <PlatformFilterButtons Value="@_platFilter" OnChange="@(v => _platFilter = v)" />
+            <div class="filter-separator"></div>
+            <button class="filter-chip @(_statusFilter == null ? "active" : "")" @onclick="() => _statusFilter = null">All Status</button>
+            <button class="filter-chip @(_statusFilter == BookStatus.Ongoing ? "active" : "")" @onclick="() => _statusFilter = BookStatus.Ongoing">Ongoing</button>
+            <button class="filter-chip @(_statusFilter == BookStatus.New ? "active" : "")" @onclick="() => _statusFilter = BookStatus.New">New</button>
+            <button class="filter-chip @(_statusFilter == BookStatus.Completed ? "active" : "")" @onclick="() => _statusFilter = BookStatus.Completed">Completed</button>
+            <button class="filter-chip @(_statusFilter == BookStatus.Hiatus ? "active" : "")" @onclick="() => _statusFilter = BookStatus.Hiatus">Hiatus</button>
+            <MudSpacer />
+            <select class="sort-select" @bind="_sortOrder">
+                <option value="updated">Last Updated</option>
+                <option value="title">Title A–Z</option>
+                <option value="author">Author A–Z</option>
+                <option value="rating">Rating</option>
+                <option value="chapters">Chapters</option>
+            </select>
+        </div>
+
+        @if (Filtered.Any())
+        {
+            <div class="library-grid">
+                @foreach (BookEntry b in Filtered)
+                {
+                    <BookPosterCard Book="@b" FullWidth="true" ShowLastUpdated="true" />
+                }
+            </div>
+        }
+        else
+        {
+            <EmptyState Icon="&#x1F4DA;" Text="No books match the selected filters" />
+        }
+    </div>
+
+</MudContainer>
+
+@code {
+    private Platform? _platFilter;
+    private BookStatus? _statusFilter;
+    private string _sortOrder = "updated";
+
+    private IEnumerable<BookEntry> Filtered =>
+        Service.Books
+            .Where(b => _platFilter == null || b.Platform == _platFilter)
+            .Where(b => _statusFilter == null || b.Status == _statusFilter)
+            .OrderBy(PageLogic.SortFunc(_sortOrder));
+}

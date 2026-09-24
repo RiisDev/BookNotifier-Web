@@ -1,0 +1,96 @@
+@inject BookNotifierService Service
+
+<div class="lit-three-col">
+
+    <div class="section-card lit-col-card">
+        <div class="section-header">
+            <MudIcon Icon="@Icons.Material.Filled.AutoStories" Size="Size.Small" />
+            <span class="ml-2">Book &amp; Chapter Updates</span>
+            @if (_bookCount > 0) { <span class="lit-tab-badge ml-2">@_bookCount</span> }
+        </div>
+        <div class="lit-col-list">
+            @{ List<NotificationEvent> bookEvents = BookChapterEvents.ToList(); }
+            @if (bookEvents.Count == 0)
+            {
+                <EmptyState Icon="&#x1F4DA;" Text="No updates yet" Style="padding:24px 0" />
+            }
+            else
+            {
+                @foreach (NotificationEvent evt in bookEvents)
+                {
+                    <ActivityItem Event="@evt" UnreadHighlight="true" />
+                }
+            }
+        </div>
+    </div>
+
+    <div class="section-card lit-col-card">
+        <div class="section-header">
+            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+            <span class="ml-2">Author Updates</span>
+            @if (_authorCount > 0) { <span class="lit-tab-badge ml-2">@_authorCount</span> }
+        </div>
+        <div class="lit-col-list">
+            @{ List<NotificationEvent> authorEvents = AuthorEvents.ToList(); }
+            @if (authorEvents.Count == 0)
+            {
+                <EmptyState Icon="&#x270D;" Text="No author updates yet" Style="padding:24px 0" />
+            }
+            else
+            {
+                @foreach (NotificationEvent evt in authorEvents)
+                {
+                    <ActivityItem Event="@evt" UnreadHighlight="true" />
+                }
+            }
+        </div>
+    </div>
+
+    <div class="section-card lit-col-card">
+        <div class="section-header">
+            <MudIcon Icon="@Icons.Material.Filled.Newspaper" Size="Size.Small" />
+            <span class="ml-2">Literotica News</span>
+        </div>
+        <div class="lit-col-list">
+            @{ List<NotificationEvent> newsEvents = NewsEvents.ToList(); }
+            @if (newsEvents.Count == 0)
+            {
+                <EmptyState Icon="&#x1F4F0;" Text="No news fetched yet" Style="padding:24px 0" />
+            }
+            else
+            {
+                @foreach (NotificationEvent evt in newsEvents)
+                {
+                    <ActivityItem Event="@evt" UnreadHighlight="false" />
+                }
+            }
+        </div>
+    </div>
+
+</div>
+
+@code {
+    private IEnumerable<NotificationEvent> BookChapterEvents => Service.Events
+        .Where(e => e is { Platform: Platform.Literotica, Type: EventType.NewChapter or EventType.NewBook or EventType.StatusChange })
+        .OrderByDescending(e => e.Timestamp)
+        .Take(15);
+
+    private IEnumerable<NotificationEvent> AuthorEvents => Service.Events
+        .Where(e => e is { Platform: Platform.Literotica, Type: EventType.AuthorRelease })
+        .OrderByDescending(e => e.Timestamp)
+        .Take(15);
+
+    private IEnumerable<NotificationEvent> NewsEvents => Service.Events
+        .Where(e => e is { Platform: Platform.Literotica, Type: EventType.BookReleased })
+        .OrderByDescending(e => e.Timestamp)
+        .Take(15);
+
+    private int _bookCount;
+    private int _authorCount;
+
+    protected override void OnParametersSet()
+    {
+        _bookCount   = BookChapterEvents.Count(e => !e.IsRead);
+        _authorCount = AuthorEvents.Count(e => !e.IsRead);
+    }
+}

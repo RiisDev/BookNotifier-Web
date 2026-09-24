@@ -1,0 +1,34 @@
+@inject IJSRuntime JS
+
+<div class="activity-item @(UnreadHighlight && !Event.IsRead ? "unread" : "") @(_hasUrl ? "activity-item-link" : "")"
+     @onclick="OpenUrl">
+    <div class="activity-dot" style="background:@PageLogic.PlatColor(Event.Platform)"></div>
+    <div class="activity-content">
+        <div class="activity-row">
+            <span class="activity-title">@Event.Title</span>
+            @if (ShowPlatformBadge)
+            {
+                <span class="plat-badge" style="color:@PageLogic.PlatColor(Event.Platform);border-color:@PageLogic.PlatColor(Event.Platform)40">
+                    @Event.Platform
+                </span>
+            }
+        </div>
+        <div class="activity-desc">@Event.Description</div>
+        <div class="activity-time">@PageLogic.RelTime(Event.Timestamp)</div>
+    </div>
+    @if (!Event.IsRead) { <div class="unread-pip"></div> }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required NotificationEvent Event { get; set; }
+    [Parameter] public bool ShowPlatformBadge { get; set; }
+    [Parameter] public bool UnreadHighlight { get; set; } = true;
+
+    private bool _hasUrl => !string.IsNullOrWhiteSpace(Event.Url);
+
+    private async Task OpenUrl()
+    {
+        if (_hasUrl)
+            await JS.InvokeVoidAsync("open", Event.Url, "_blank");
+    }
+}

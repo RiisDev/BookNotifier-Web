@@ -1,0 +1,34 @@
+@page "/{PlatformName}"
+@rendermode InteractiveServer
+
+@if (_config != null)
+{
+    <PlatformPage PlatformEnum="@_config.Platform"
+                  ChapterFormat="@_config.ChapterFormat"
+                  DarkCoverLetter="@_config.DarkLetter"
+                  ShowHiatusBadge="@_config.ShowHiatusBadge" />
+}
+else
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="py-5 px-4" Style="text-align:center">
+        <EmptyState Icon="&#x2753;" Text="@($"Platform \"{PlatformName}\" not found.")" />
+    </MudContainer>
+}
+
+@code {
+    private PlatConfig? _config;
+
+    [Parameter] public string PlatformName { get; set; } = "";
+    
+    private static readonly Dictionary<string, PlatConfig> Routes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["goodreads"]= new PlatConfig(Platform.GoodReads),
+            ["scribblehub"] = new PlatConfig(Platform.ScribbleHub,"Ch.{0}"),
+            ["royalroad"]= new PlatConfig(Platform.RoyalRoad,"Ch.{0}", DarkLetter: true),
+            ["literotica"]= new PlatConfig(Platform.Literotica,"{0} chapters", ShowHiatusBadge: false),
+            ["ao3"]= new PlatConfig(Platform.Ao3,"{0} chapters", ShowHiatusBadge: false),
+        };
+
+
+    protected override void OnParametersSet() => Routes.TryGetValue(PlatformName, out _config);
+}

@@ -1,0 +1,104 @@
+@page "/activity"
+@rendermode InteractiveServer
+@inject BookNotifierService Service
+@inject IJSRuntime JS
+
+<PageTitle>Activity — BookNotifier</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-5 px-4">
+
+    <div class="plat-page-header">
+        <div class="plat-page-title">
+            <MudIcon Icon="@Icons.Material.Filled.Timeline" />
+            Activity
+        </div>
+        <div class="plat-stat-row">
+            <div class="plat-stat">
+                <span class="plat-stat-val">@Service.Events.Count</span>
+                <span class="plat-stat-lbl">Total Events</span>
+            </div>
+            <div class="plat-stat">
+                <span class="plat-stat-val" style="color:#6c5ce7">@Service.GetUnreadCount()</span>
+                <span class="plat-stat-lbl">Unread</span>
+            </div>
+            <div class="plat-stat">
+                <span class="plat-stat-val">@Service.GetTodayEvents().Count()</span>
+                <span class="plat-stat-lbl">Today</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="library-filters">
+            <PlatformFilterButtons Value="@_platFilter" OnChange="@(v => _platFilter = v)" AllLabel="All Platforms" />
+            <div class="filter-separator"></div>
+            <button class="filter-chip @(_typeFilter == null ? "active" : "")" @onclick="() => _typeFilter = null">All Types</button>
+            <button class="filter-chip @(_typeFilter == EventType.NewChapter ? "active" : "")" @onclick="() => _typeFilter = EventType.NewChapter">Chapters</button>
+            <button class="filter-chip @(_typeFilter == EventType.NewBook ? "active" : "")" @onclick="() => _typeFilter = EventType.NewBook">New Books</button>
+            <button class="filter-chip @(_typeFilter == EventType.AuthorRelease ? "active" : "")" @onclick="() => _typeFilter = EventType.AuthorRelease">Author</button>
+            <div class="filter-separator"></div>
+            <button class="filter-chip @(_unreadOnly ? "active" : "")" @onclick="() => _unreadOnly = !_unreadOnly">Unread Only</button>
+        </div>
+
+        @if (!Filtered.Any())
+        {
+            <EmptyState Icon="&#x1F514;" Text="No events match the selected filters" />
+        }
+        else
+        {
+            string? lastDay = null;
+            @foreach (NotificationEvent evt in Filtered)
+            {
+                string day = evt.Timestamp.Date == DateTime.Today ? "Today"
+                        : evt.Timestamp.Date == DateTime.Today.AddDays(-1) ? "Yesterday"
+                        : evt.Timestamp.ToString("dddd, MMMM d");
+
+                if (day != lastDay)
+                {
+                    <div class="activity-date-header">@day</div>
+                    lastDay = day;
+                }
+
+                <div class="activity-page-item @(evt.IsRead ? "" : "unread-row") @(!string.IsNullOrWhiteSpace(evt.Url) ? "activity-item-link" : "")"
+                     @onclick="@(() => OpenUrl(evt.Url))">
+                    <div class="etype-icon" style="background:@PageLogic.PlatColor(evt.Platform)18;color:@PageLogic.PlatColor(evt.Platform)">
+                        @PageLogic.TypeIcon(evt.Type)
+                    </div>
+                    <div class="epage-content">
+                        <div class="epage-title">@evt.Title</div>
+                        <div class="epage-desc">@evt.Description</div>
+                        <div class="epage-meta">
+                            <span class="epage-time">@evt.Timestamp.ToString("h:mm tt")</span>
+                            <span class="plat-badge" style="color:@PageLogic.PlatColor(evt.Platform);border-color:@PageLogic.PlatColor(evt.Platform)40">@evt.Platform</span>
+                            <span class="etype-badge" style="background:@PageLogic.TypeColor(evt.Type)18;color:@PageLogic.TypeColor(evt.Type)">@PageLogic.TypeLabel(evt.Type)</span>
+                        </div>
+                    </div>
+                    @if (!evt.IsRead)
+                    {
+                        <div class="unread-pip" style="margin-top:8px"></div>
+                    }
+                </div>
+            }
+        }
+    </div>
+
+</MudContainer>
+
+@code {
+    private Platform? _platFilter;
+    private EventType? _typeFilter;
+    private bool _unreadOnly;
+
+    private IEnumerable<NotificationEvent> Filtered =>
+        Service.Events
+            .Where(e => _platFilter == null || e.Platform == _platFilter)
+            .Where(e => _typeFilter == null || e.Type == _typeFilter)
+            .Where(e => !_unreadOnly || !e.IsRead)
+            .OrderByDescending(e => e.Timestamp);
+
+    private async Task OpenUrl(string? url)
+    {
+        if (!string.IsNullOrWhiteSpace(url))
+            await JS.InvokeVoidAsync("open", url, "_blank");
+    }
+}

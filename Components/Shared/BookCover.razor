@@ -1,0 +1,22 @@
+<div class="poster-cover" style="@(Bg + Style)">
+    @if (!string.IsNullOrEmpty(CoverUrl))
+    {
+        <img src="@CoverUrl" class="cover-img" alt="@Letter" />
+    }
+    else
+    {
+        <span class="poster-letter" style="@(DarkLetter ? "color:rgba(0,0,0,0.7)" : "")">@Letter</span>
+    }
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public string? CoverUrl { get; set; }
+    [Parameter] public string Gradient { get; set; } = "";
+    [Parameter] public char Letter { get; set; } = '?';
+    [Parameter] public bool DarkLetter { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string Bg => string.IsNullOrEmpty(CoverUrl) ? $"background:{Gradient};" : "background:#111111;";
+}

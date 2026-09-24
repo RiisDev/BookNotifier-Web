@@ -1,0 +1,355 @@
+@page "/setup"
+@layout SetupLayout
+@rendermode InteractiveServer
+@inject SettingsService SettingsService
+@inject CliRunnerService CliRunner
+@inject NavigationManager Nav
+
+<PageTitle>Setup — BookNotifier</PageTitle>
+
+<div class="setup-container">
+
+    <div class="setup-progress">
+        @for (int i = 0; i < _steps.Count; i++)
+        {
+            <div class="setup-dot @(i == _step ? "active" : i < _step ? "done" : "")" title="@_steps[i].Title">
+                @if (i < _step) { <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" /> }
+                else { <span>@(i + 1)</span> }
+            </div>
+            @if (i < _steps.Count - 1) { <div class="setup-dot-line @(i < _step ? "done" : "")"></div> }
+        }
+    </div>
+
+    <div class="setup-card">
+
+        @switch (CurrentStep.Id)
+        {
+            case "welcome":
+            {
+                <div class="setup-step-icon setup-icon-primary">📚</div>
+                <h1 class="setup-title">Welcome to BookNotifier</h1>
+                <p class="setup-subtitle">
+                    Let's get everything configured. Select which platforms you'd like to monitor,
+                    then we'll walk through each one.
+                </p>
+
+                <div class="setup-platform-grid">
+                    @foreach ((string Key, string Name, string Color) p in PlatformDefs)
+                    {
+                        bool on = _s.EnabledNotifiers.Contains(p.Key);
+                        <button class="setup-plat-btn @(on ? "on" : "")"
+                                style="@(on ? $"border-color:{p.Color};box-shadow:0 0 0 1px {p.Color}40" : "")"
+                                @onclick="() => TogglePlatform(p.Key)">
+                            <span class="setup-plat-dot" style="background:@p.Color"></span>
+                            <span class="setup-plat-name">@p.Name</span>
+                            <span class="setup-plat-check" style="color:@p.Color">
+                                @if (on) { <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" /> }
+                            </span>
+                        </button>
+                    }
+                </div>
+                break;
+            }
+            case "webhook":
+            {
+                <div class="setup-step-icon" style="background:rgba(88,101,242,0.15);color:#5865f2">
+                    <MudIcon Icon="@Icons.Material.Filled.Notifications" />
+                </div>
+                <h2 class="setup-title">Discord Notifications</h2>
+                <p class="setup-subtitle">All new-book and new-chapter alerts are sent to a Discord webhook.</p>
+
+                <div class="setup-field">
+                    <label class="setup-label">Webhook URL <span class="setup-required">*</span></label>
+                    <p class="setup-hint">Create one in your Discord server's channel settings → Integrations.</p>
+                    <input class="setup-input @(_webhookError ? "input-error" : "")" type="url" placeholder="https://discord.com/api/webhooks/…" @bind="_s.WebhookUrl" @bind:event="oninput" />
+                    @if (_webhookError)
+                    {
+                        <span class="setup-error-msg">A valid webhook URL is required.</span>
+                    }
+                </div>
+                break;
+            }
+            case "goodreads":
+                <div class="setup-step-icon" style="background:@(PageLogic.PlatColor(Platform.GoodReads))26;color:@PageLogic.PlatColor(Platform.GoodReads)">
+                    <MudIcon Icon="@Icons.Material.Filled.MenuBook" />
+                </div>
+                <h2 class="setup-title">GoodReads</h2>
+                <p class="setup-subtitle">Watches your reading shelf for new books and author releases.</p>
+
+                <div class="setup-field">
+                    <label class="setup-label">User ID <span class="setup-required">*</span></label>
+                    <p class="setup-hint">Found in your GoodReads profile URL: goodreads.com/user/show/<strong>123456789</strong></p>
+                    <input class="setup-input" type="text" placeholder="123456789" @bind="_s.GoodReadsUserId" @bind:event="oninput" />
+                </div>
+                <div class="setup-field" style="margin-top:16px">
+                    <label class="setup-label">Shelf Tag</label>
+                    <p class="setup-hint">Which shelf to watch for new releases.</p>
+                    <input class="setup-input" type="text" placeholder="to-read" @bind="_s.GoodReadsShelfTag" @bind:event="oninput" />
+                </div>
+                <div class="setup-field" style="margin-top:16px">
+                    <label class="setup-label">Check Every (minutes)</label>
+                    <input class="setup-input" type="number" min="1" @bind="GoodReadsRecheckMinutes" @bind:event="oninput" />
+                </div>
+                break;
+            case "scribblehub":
+                <div class="setup-step-icon" style="background:@(PageLogic.PlatColor(Platform.ScribbleHub))26;color:@PageLogic.PlatColor(Platform.ScribbleHub)">
+                    <MudIcon Icon="@Icons.Material.Filled.Edit" />
+                </div>
+                <h2 class="setup-title">ScribbleHub</h2>
+                <p class="setup-subtitle">Monitors your reading list for new chapters and stories.</p>
+
+                <div class="setup-row">
+                    <div class="setup-field" style="flex:1">
+                        <label class="setup-label">User ID <span class="setup-required">*</span></label>
+                        <p class="setup-hint">Numeric ID from your public reading list URL.</p>
+                        <input class="setup-input" type="text" placeholder="123456" @bind="_s.ScribbleHubUserId" @bind:event="oninput" />
+                    </div>
+
+                    <div class="setup-field" style="margin-top:16px">
+                        <label class="setup-label">FlareSolverr URL </label>
+                        <p class="setup-hint">FlareSolverr is required for ScribbleHub</p>
+                        <input class="setup-input" type="url" placeholder="http://localhost:8191/v1" @bind="_s.FlareSolverUrl" @bind:event="oninput" />
+                    </div>
+                    <div class="setup-field" style="margin-top:16px">
+                        <label class="setup-label">Check Every (minutes)</label>
+                        <input class="setup-input" type="number" min="1" @bind="ScribbleHubRecheckMinutes" @bind:event="oninput" />
+                    </div>
+                </div>
+                break;
+            case "royalroad":
+                <div class="setup-step-icon" style="background:@(PageLogic.PlatColor(Platform.RoyalRoad))26;color:@PageLogic.PlatColor(Platform.RoyalRoad)">
+                    <MudIcon Icon="@Icons.Material.Filled.Castle" />
+                </div>
+                <h2 class="setup-title">Royal Road</h2>
+                <p class="setup-subtitle">Tracks your favourited fictions for new chapters.</p>
+
+                <div class="setup-field">
+                    <label class="setup-label">User ID <span class="setup-required">*</span></label>
+                    <p class="setup-hint">Found in your Royal Road profile URL: royalroad.com/profile/<strong>123456</strong></p>
+                    <input class="setup-input" type="text" placeholder="123456" @bind="_s.RoyalRoadUserId" @bind:event="oninput" />
+                </div>
+                <div class="setup-field" style="margin-top:16px">
+                    <label class="setup-label">Check Every (minutes)</label>
+                    <input class="setup-input" type="number" min="1" @bind="RoyalRoadRecheckMinutes" @bind:event="oninput" />
+                </div>
+                break;
+            case "aothree":
+                <div class="setup-step-icon" style="background:@(PageLogic.PlatColor(Platform.Ao3))26;color:@PageLogic.PlatColor(Platform.Ao3)">
+                    <MudIcon Icon="@Icons.Material.Filled.Bookmark" />
+                </div>
+                <h2 class="setup-title">Archive of Our Own</h2>
+                <p class="setup-subtitle">
+                    Monitors your public bookmarks for new works and chapters.
+                    No login required — uses the public bookmarks Atom feed.
+                </p>
+
+                <div class="setup-field">
+                    <label class="setup-label">AO3 Username <span class="setup-required">*</span></label>
+                    <p class="setup-hint">Your profile URL: archiveofourown.org/users/<strong>your_username</strong></p>
+                    <input class="setup-input" type="text" placeholder="your_username" @bind="_s.Ao3Username" @bind:event="oninput" />
+                </div>
+                <div class="setup-field">
+                    <label class="setup-label">Pseudonym <span class="setup-optional">(optional)</span></label>
+                    <p class="setup-hint">
+                        If your bookmarks are under a pseudonym, enter it here.
+                        Leave blank to use your main username.
+                        Find it at: archiveofourown.org/users/<strong>your_username</strong>/pseuds/<strong>pseudo_name</strong>
+                    </p>
+                    <input class="setup-input" type="text" placeholder="pseudo_name" @bind="_s.Ao3Pseudoname" @bind:event="oninput" />
+                </div>
+                <p class="setup-hint" style="margin-top:12px">
+                    Note: only <strong>public</strong> bookmarks are tracked.
+                    If your bookmarks are private, set them to public in AO3 settings.
+                </p>
+                <div class="setup-row" style="margin-top:16px">
+                    <div class="setup-field" style="flex:1">
+                        <label class="setup-label">FlareSolverr URL </label>
+                        <p class="setup-hint">FlareSolverr is required for AO3</p>
+                        <input class="setup-input" type="url" placeholder="http://localhost:8191/v1" @bind="_s.FlareSolverUrl" @bind:event="oninput" />
+                    </div>
+                    <div class="setup-field">
+                        <label class="setup-label">Check Every (minutes)</label>
+                        <input class="setup-input" type="number" min="1" @bind="Ao3RecheckMinutes" @bind:event="oninput" />
+                    </div>
+                </div>
+                break;
+            case "literotica":
+                <div class="setup-step-icon" style="background:@(PageLogic.PlatColor(Platform.Literotica))26;color:@PageLogic.PlatColor(Platform.Literotica)">
+                    <MudIcon Icon="@Icons.Material.Filled.Favorite" />
+                </div>
+                <h2 class="setup-title">Literotica</h2>
+                <p class="setup-subtitle">Follows activity from authors you follow on Literotica.</p>
+
+                <div class="setup-row">
+                    <div class="setup-field" style="flex:1">
+                        <label class="setup-label">Username</label>
+                        <input class="setup-input" type="text" placeholder="your_username" @bind="_s.LiteroticaUsername" @bind:event="oninput" />
+                    </div>
+                    <div class="setup-field" style="flex:1">
+                        <label class="setup-label">Password</label>
+                        <input class="setup-input" type="password" placeholder="••••••••" @bind="_s.LiteroticaPassword" @bind:event="oninput" />
+                    </div>
+                </div>
+                <div class="setup-field" style="margin-top:16px">
+                    <label class="setup-label">Check Every (minutes)</label>
+                    <input class="setup-input" type="number" min="1" @bind="LiteroticaRecheckMinutes" @bind:event="oninput" />
+                </div>
+                break;
+            case "releases":
+                <div class="setup-step-icon" style="background:rgba(255,152,0,0.15);color:#ff9800">
+                    <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" />
+                </div>
+                <h2 class="setup-title">Release Tracking</h2>
+                <p class="setup-subtitle">
+                    When GoodReads finds a new book, BookNotifier can look up its release
+                    date on Amazon and notify you on the day it ships.
+                </p>
+
+                <div class="setup-field">
+                    <label class="setup-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                        <input type="checkbox" @bind="_s.AmazonCheckEnabled" />
+                        Check Amazon for release dates on new GoodReads books
+                    </label>
+                    <p class="setup-hint">Searches Amazon by book title and author to find pre-order dates.</p>
+                </div>
+
+                break;
+            case "done":
+            {
+                <div class="setup-step-icon setup-icon-success">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" />
+                </div>
+                <h2 class="setup-title">All set!</h2>
+                <p class="setup-subtitle">
+                    BookNotifier has been configured. The scrapers will start automatically
+                    and notify you on Discord when something new is found.
+                </p>
+                <div class="setup-done-summary">
+                    @foreach ((string Key, string Name, string Color) p in PlatformDefs.Where(p => _s.EnabledNotifiers.Contains(p.Key)))
+                    {
+                        <div class="setup-done-chip" style="border-color:@p.Color;color:@p.Color">
+                            <span class="setup-plat-dot" style="background:@p.Color"></span>
+                            @p.Name
+                        </div>
+                    }
+                </div>
+
+                <div class="setup-field" style="margin-top:20px">
+                    @{
+                        int total = CliRunner.RunStates.Count;
+                        int done = CliRunner.RunStates.Count(r => r.Status is "done" or "error");
+                        int pct = total == 0 ? 0 : done * 100 / total;
+                    }
+                    @if (total > 0)
+                    {
+                        <div class="setup-run-progress-track">
+                            <div class="setup-run-progress-fill" style="width:@(pct)%"></div>
+                        </div>
+                        <p class="setup-hint" style="margin-top:8px">@done / @total platforms checked</p>
+                        <div class="setup-run-platform-list">
+                            @foreach (CliRunnerService.PlatformRunState r in CliRunner.RunStates)
+                            {
+                                <div class="setup-run-platform-row">
+                                    <span style="background:@PageLogic.PlatColor(r.Platform)" class="setup-plat-dot"></span>
+                                    <span>@PageLogic.PlatKey(r.Platform)</span>
+                                    <span class="setup-run-status setup-run-status-@r.Status">@r.Status</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    <button class="setup-btn-verify" style="margin-top:12px" @onclick="RunNotifierNowAsync" disabled="@CliRunner.IsRunningOnce">
+                        @if (CliRunner.IsRunningOnce)
+                        {
+                            <span class="setup-spinner" style="width:14px;height:14px;margin:0 2px 0 0"></span>
+                            <span>Running…</span>
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                            <span>Run Notifier Now</span>
+                        }
+                    </button>
+                    <p class="setup-hint" style="margin-top:8px">
+                        Runs every enabled platform once right now, so your library isn't empty when you continue.
+                    </p>
+                </div>
+                break;
+            }
+        }
+
+        @if (CurrentStep.Id is "webhook" or "goodreads" or "scribblehub" or "royalroad" or "literotica" or "aothree")
+        {
+            <div class="setup-verify-row">
+                <button class="setup-btn-verify"
+                        @onclick="() => VerifyAsync(CurrentStep.Id)"
+                        disabled="@(_verifyRunning == CurrentStep.Id)">
+                    @if (_verifyRunning == CurrentStep.Id)
+                    {
+                        <span class="setup-spinner" style="width:14px;height:14px;margin:0 2px 0 0"></span>
+                        <span>@(_verifyMsg.GetValueOrDefault(CurrentStep.Id, "Checking…"))</span>
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Wifi" Size="Size.Small" />
+                        <span>Verify</span>
+                    }
+                </button>
+                @if (_verifyResults.TryGetValue(CurrentStep.Id, out (bool Ok, string Msg) vr))
+                {
+                    <span class="@(vr.Ok ? "setup-verify-ok" : "setup-verify-fail")">
+                        @(vr.Ok ? "✓" : "✗") @vr.Msg
+                    </span>
+                }
+            </div>
+        }
+
+        <div class="setup-nav">
+            @if (_step > 0 && CurrentStep.Id != "done")
+            {
+                <button class="setup-btn-back" @onclick="Back">
+                    <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" />
+                    Back
+                </button>
+            }
+            else
+            {
+                <span></span>
+            }
+
+            @if (CurrentStep.Id == "done")
+            {
+                <button class="setup-btn-next setup-btn-finish" @onclick="GoToDashboard">
+                    Go to Dashboard
+                    <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" />
+                </button>
+            }
+            else
+            {
+                <button class="setup-btn-next @(_saving ? "saving" : "")"
+                        @onclick="Next" disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <span class="setup-spinner"></span>
+                        <span>Saving…</span>
+                    }
+                    else if (_step == _steps.Count - 2)
+                    {
+                        <span>Finish</span>
+                        <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" />
+                    }
+                    else
+                    {
+                        <span>Next</span>
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" />
+                    }
+                </button>
+            }
+        </div>
+
+    </div>
+
+    <div class="setup-step-label">
+        Step @(_step + 1) of @_steps.Count — @CurrentStep.Title
+    </div>
+
+</div>

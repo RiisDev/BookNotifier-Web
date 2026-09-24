@@ -1,0 +1,37 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="_theme" IsDarkMode="true" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="setup-shell">
+    @Body
+</div>
+
+@code {
+    private readonly MudTheme _theme = new()
+    {
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#6c5ce7",
+            Secondary = "#00cec9",
+            Background = "#141414",
+            BackgroundGray = "#1c1c1c",
+            Surface = "#1c1c1c",
+            DrawerBackground = "#0a0a0a",
+            TextPrimary = "rgba(255,255,255,0.87)",
+            TextSecondary = "rgba(255,255,255,0.54)",
+            ActionDefault = "rgba(255,255,255,0.54)",
+            ActionDisabled = "rgba(255,255,255,0.26)",
+            ActionDisabledBackground = "rgba(255,255,255,0.12)",
+            Divider = "rgba(255,255,255,0.1)",
+            Dark = "#1c1c1c",
+            DarkDarken = "#0a0a0a",
+            Success = "#00e676",
+            Warning = "#ffab40",
+            Error = "#cf6679",
+            Info = "#40c4ff",
+        }
+    };
+}

@@ -1,0 +1,278 @@
+@inject BookNotifierService Service
+@inject DatabaseService Db
+
+<PageTitle>@PlatformEnum — BookNotifier</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-5 px-4">
+
+    <div class="plat-page-header" style="border-bottom-color:@(PageLogic.PlatColor(PlatformEnum))4d">
+        <div class="plat-page-title">
+            <span class="plat-page-dot" style="background:@PageLogic.PlatColor(PlatformEnum);box-shadow:0 0 8px @PageLogic.PlatColor(PlatformEnum)"></span>
+            @PlatformEnum
+        </div>
+        <div class="plat-stat-row">
+            @{ List<BookEntry> bookList = Books.ToList(); }
+            @for (int i = 0; i < PageLogic.Stats.Length; i++)
+            {
+                (string Label, Func<IEnumerable<BookEntry>, string> Value) stat = PageLogic.Stats[i];
+                <div class="plat-stat">
+                    <span class="plat-stat-val" style="@(i == 0 ? $"color:{PageLogic.PlatColor(PlatformEnum)}" : "")">@stat.Value(bookList)</span>
+                    <span class="plat-stat-lbl">@stat.Label</span>
+                </div>
+            }
+        </div>
+    </div>
+
+    @{ PlatformStatus status = Service.Platforms.First(p => p.Platform == PlatformEnum); }
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:10px 14px;
+                background:#1c1c1c;border:1px solid @(PageLogic.PlatColor(PlatformEnum))33;border-radius:6px">
+        <div class="plat-status @(status.IsRunning || _rechecking ? "ps-run" : status.ErrorMessage != null ? "ps-err" : "ps-stop")"
+             style="display:flex;align-items:center;gap:5px;font-size:0.75rem;font-weight:600">
+            <span class="ps-dot"></span>
+            @(_rechecking ? "Checking…" : status.IsRunning ? "Notifier Running" : status.ErrorMessage != null ? "Error" : "Stopped")
+        </div>
+        @if (status.LastCheck.HasValue)
+        {
+            <span style="font-size:0.72rem;color:rgba(255,255,255,0.35)">
+                Last check @PageLogic.RelTime(status.LastCheck.Value)
+            </span>
+        }
+        <MudSpacer />
+        @if (status.ErrorMessage != null)
+        {
+            <span style="font-size:0.72rem;color:#cf6679">@status.ErrorMessage</span>
+        }
+        else
+        {
+            <span style="font-size:0.72rem;color:rgba(255,255,255,0.35)">
+                Checks every @PageLogic.FmtInterval(status.CheckInterval)
+            </span>
+        }
+        <button class="recheck-btn @(_rechecking ? "rechecking" : "")"
+                disabled="@_rechecking" @onclick="Recheck">
+            @if (_rechecking)
+            {
+                <span class="spin-icon">↻</span><span>Checking…</span>
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" /><span>Recheck</span>
+            }
+        </button>
+    </div>
+
+    @{
+        Dictionary<DateTime, List<BookEntry>> weekMap = WeekDays.ToDictionary(d => d, _ => new List<BookEntry>());
+        foreach (BookEntry b in Books.Where(b => b.NextExpected.HasValue))
+            foreach (DateTime day in PageLogic.ProjectedReleaseDays(b.NextExpected, b.ReleaseCycleDays, WeekStart, WeekStart.AddDays(6), b.ReleaseWeekdayMask))
+                if (weekMap.TryGetValue(day, out List<BookEntry>? bucket)) bucket.Add(b);
+        bool hasWeekEvents = weekMap.Values.Any(l => l.Count > 0);
+    }
+    @if (hasWeekEvents)
+    {
+        <div class="section-card" style="margin-bottom:20px">
+            <div class="section-header">
+                <MudIcon Icon="@Icons.Material.Filled.DateRange" Size="Size.Small" />
+                <span class="ml-2">This Week</span>
+                <MudSpacer />
+                <span style="font-size:0.72rem;color:rgba(255,255,255,0.35)">@WeekStart.ToString("MMM d") – @WeekStart.AddDays(6).ToString("MMM d")</span>
+            </div>
+            <div class="cal-page-grid" style="margin-top:12px">
+                @foreach (DateTime day in WeekDays)
+                {
+                    <div class="cal-page-dow">@day.ToString("ddd")</div>
+                }
+                @foreach (DateTime day in WeekDays)
+                {
+                    bool isToday = day.Date == DateTime.Today;
+                    <div class="cal-page-cell @(isToday ? "today" : "")">
+                        <div class="cal-page-day @(isToday ? "today-num" : "")">@day.Day</div>
+                        @foreach (BookEntry b in weekMap[day])
+                        {
+                            <div class="cal-event"
+                                 style="background:@(PageLogic.PlatColor(PlatformEnum))22;color:@PageLogic.PlatColor(PlatformEnum);border:1px solid @(PageLogic.PlatColor(PlatformEnum))33"
+                                 title="@b.Title">
+                                @b.Title
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="section-card">
+        <div class="library-filters">
+            @foreach ((string label, BookStatus? filter) in PageLogic.Filters)
+            {
+                <button class="filter-chip @(_statusFilter == filter ? "active" : "")"
+                        @onclick="() => _statusFilter = filter">
+                    @label
+                </button>
+            }
+            <MudSpacer />
+            <select class="sort-select" @bind="_sort">
+                @foreach ((string Label, string Key) s in PageLogic.Sorts)
+                {
+                    <option value="@s.Key">@s.Label</option>
+                }
+            </select>
+        </div>
+        <div class="library-grid">
+            @foreach (BookEntry b in Filtered)
+            {
+                <BookPosterCard Book="@b" Gradient="@PageLogic.PlatGradient(PlatformEnum)"
+                                ChapterFormat="@ChapterFormat"
+                                DarkLetter="@DarkCoverLetter" ShowHiatusBadge="@ShowHiatusBadge"
+                                FullWidth="true" ShowLastUpdated="true" ShowPlatformTag="false" />
+            }
+        </div>
+    </div>
+
+    @if (PlatformEnum == Platform.Literotica)
+    {
+        <LiteroticaActivityTabs />
+    }
+    else
+    {
+        <div class="section-card" style="margin-top:20px">
+            <div class="section-header">
+                <MudIcon Icon="@Icons.Material.Filled.Notifications" Size="Size.Small" />
+                <span class="ml-2">Recent @PlatformEnum Activity</span>
+            </div>
+            <div>
+                @foreach (NotificationEvent evt in Service.Events
+                    .Where(e => e.Platform == PlatformEnum)
+                    .OrderByDescending(e => e.Timestamp)
+                    .Take(8))
+                {
+                    <ActivityItem Event="@evt" UnreadHighlight="false" />
+                }
+            </div>
+        </div>
+    }
+
+    <div class="section-card" style="margin-top:20px">
+        <div class="section-header">
+            <MudIcon Icon="@Icons.Material.Filled.Terminal" Size="Size.Small" />
+            <span class="ml-2">Logs</span>
+            <div style="display:flex;gap:5px;margin-left:12px">
+                <button class="log-filter-chip @(_logLevel == null ? "active" : "")"
+                        @onclick="() => _logLevel = null">All</button>
+                <button class="log-filter-chip lfc-info @(_logLevel == "INFO" ? "active" : "")"
+                        @onclick='() => _logLevel = "INFO"'>INFO</button>
+                <button class="log-filter-chip lfc-error @(_logLevel == "ERROR" ? "active" : "")"
+                        @onclick='() => _logLevel = "ERROR"'>ERROR</button>
+            </div>
+            <MudSpacer />
+            <button class="recheck-btn" @onclick="RefreshLogs" disabled="@_logsLoading"
+                    title="Refresh logs" style="padding:3px 10px">
+                <MudIcon Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" />
+            </button>
+        </div>
+        <div class="log-terminal">
+            @if (_logsLoading)
+            {
+                <div class="log-empty">Loading…</div>
+            }
+            else if (!_logs.Any())
+            {
+                <div class="log-empty">No log entries yet</div>
+            }
+            else
+            {
+                @foreach (DbLogEntry e in FilteredLogs)
+                {
+                    <div class="log-entry">
+                        <span class="log-ts">@e.Timestamp</span>
+                        <span class="log-level @PageLogic.LogLevelClass(e.Level)">@e.Level</span>
+                        @if (!string.IsNullOrEmpty(e.Caller))
+                        {
+                            <span class="log-caller">[@e.Caller]</span>
+                        }
+                        <span class="log-msg">@e.Message</span>
+                    </div>
+                }
+            }
+        </div>
+        @if (_logs.Count >= _logLimit)
+        {
+            <div style="padding:10px 0 2px;text-align:center">
+                <button class="btn-load-more" @onclick="LoadMoreLogs">Load 50 more</button>
+            </div>
+        }
+    </div>
+
+</MudContainer>
+
+@code {
+    [Parameter, EditorRequired] public required Platform PlatformEnum { get; set; }
+    [Parameter] public string? ChapterFormat { get; set; }
+    [Parameter] public bool DarkCoverLetter { get; set; }
+    [Parameter] public bool ShowHiatusBadge { get; set; } = true;
+
+    private BookStatus? _statusFilter;
+    private string _sort = "updated";
+
+    private IEnumerable<BookEntry> Books => Service.GetBooks(PlatformEnum);
+
+    private static DateTime WeekStart
+    {
+        get
+        {
+            DateTime today = DateTime.Today;
+            int diff = ((int)today.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+            return today.AddDays(-diff);
+        }
+    }
+
+    private static IReadOnlyList<DateTime> WeekDays => Enumerable.Range(0, 7).Select(i => WeekStart.AddDays(i)).ToList();
+    private IEnumerable<BookEntry> Filtered => Books
+        .Where(b => _statusFilter == null || b.Status == _statusFilter)
+        .OrderBy(PageLogic.SortFunc(_sort));
+
+    private bool _rechecking;
+
+    private async Task Recheck()
+    {
+        _rechecking = true;
+        StateHasChanged();
+        await Service.TriggerRecheckAsync(PlatformEnum);
+        _rechecking = false;
+        await RefreshLogs();
+    }
+
+    private List<DbLogEntry> _logs = [];
+    private bool _logsLoading;
+    private string? _logLevel;
+    private int _logLimit = 50;
+
+    private IEnumerable<DbLogEntry> FilteredLogs => _logLevel is null ? _logs : _logs.Where(e => e.Level == _logLevel);
+
+    private Platform? _logsLoadedFor;
+
+    // PlatformRoute reuses this component instance across /scribblehub -> /royalroad navigations
+    // (same component type, same tree slot), so loading logs in OnInitializedAsync only fires once
+    // and the previous platform's logs stick around. Reload whenever the platform parameter actually changes.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_logsLoadedFor == PlatformEnum) return;
+        _logsLoadedFor = PlatformEnum;
+        _logLimit = 50;
+        await RefreshLogs();
+    }
+
+    private async Task RefreshLogs()
+    {
+        _logsLoading = true;
+        StateHasChanged();
+        _logs = await Db.GetLogsAsync(PageLogic.PlatKey(PlatformEnum), _logLimit);
+        _logsLoading = false;
+    }
+
+    private async Task LoadMoreLogs()
+    {
+        _logLimit += 50;
+        await RefreshLogs();
+    }
+}

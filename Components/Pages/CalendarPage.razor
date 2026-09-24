@@ -1,0 +1,160 @@
+@page "/calendar"
+@rendermode InteractiveServer
+@inject BookNotifierService Service
+
+<PageTitle>Calendar — BookNotifier</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-5 px-4">
+
+    <div class="cal-header-row">
+        <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" Style="color:#6c5ce7;font-size:1.6rem" />
+        <MudText Typo="Typo.h5" Style="color:rgba(255,255,255,0.87);font-weight:700">Calendar</MudText>
+        <MudSpacer />
+        <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"  OnClick="PrevMonth" Color="Color.Default" />
+        <MudText Typo="Typo.h6" Style="color:rgba(255,255,255,0.75);min-width:140px;text-align:center">
+            @_date.ToString("MMMM yyyy")
+        </MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextMonth" Color="Color.Default" />
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="GoToday"
+                   Style="border-color:rgba(255,255,255,0.2);color:rgba(255,255,255,0.6)">Today</MudButton>
+    </div>
+
+    <MudGrid Spacing="3">
+
+        <MudItem xs="12" md="8">
+            <div class="cal-page-grid">
+                @foreach (string h in new[] { "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday" })
+                {
+                    <div class="cal-page-dow">@h[..3]</div>
+                }
+                @foreach (int day in CalDays)
+                {
+                    if (day == 0)
+                    {
+                        <div class="cal-page-cell empty"></div>
+                    }
+                    else
+                    {
+                        List<BookEntry> books = BooksOnDay(day);
+                        bool isToday = SameMonthYear && day == DateTime.Today.Day;
+                        <div class="cal-page-cell @(isToday ? "today" : "")">
+                            <div class="cal-page-day">
+                                @if (isToday)
+                                {
+                                    <span class="cal-page-day today-num">@day</span>
+                                }
+                                else
+                                {
+                                    @day
+                                }
+                            </div>
+                            @foreach (BookEntry b in books)
+                            {
+                                <div class="cal-event"
+                                     style="background:@PageLogic.PlatColor(b.Platform)22;color:@PageLogic.PlatColor(b.Platform);border:1px solid @PageLogic.PlatColor(b.Platform)33"
+                                     title="@b.Title — @b.Author">
+                                    @b.Title
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <div class="section-card">
+                <div class="section-header">
+                    <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" />
+                    <span class="ml-2">Upcoming Releases</span>
+                </div>
+                <div class="upcoming-sidebar-body">
+                    @{
+                        List<BookEntry> upcoming = Service.Books
+                            .Where(b => b.NextExpected.HasValue && b.NextExpected.Value.Date >= DateTime.Today)
+                            .OrderBy(b => b.NextExpected)
+                            .Take(15)
+                            .ToList();
+                    }
+                    @if (upcoming.Count == 0)
+                    {
+                        <EmptyState Icon="&#x1F4C5;" Text="No upcoming releases" Style="padding:24px" />
+                    }
+                    else
+                    {
+                        string? lastDate = null;
+                        @foreach (BookEntry b in upcoming)
+                        {
+                            string dateStr = b.NextExpected!.Value.ToString("dddd, MMM d");
+                            if (dateStr != lastDate)
+                            {
+                                <div class="upcoming-date-header">@dateStr</div>
+                                lastDate = dateStr;
+                            }
+                            <div class="upcoming-sidebar-row">
+                                <div class="upcoming-sidebar-accent" style="background:@PageLogic.PlatColor(b.Platform)"></div>
+                                <div class="upcoming-sidebar-row-body">
+                                    <div class="upcoming-sidebar-title">@b.Title</div>
+                                    <div class="upcoming-sidebar-author">@b.Author</div>
+                                </div>
+                                <span style="font-size:0.65rem;padding:2px 7px;border-radius:3px;background:@PageLogic.PlatColor(b.Platform)20;color:@PageLogic.PlatColor(b.Platform);border:1px solid @PageLogic.PlatColor(b.Platform)40;white-space:nowrap">
+                                    @b.Platform
+                                </span>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="section-card" style="margin-top:16px">
+                <div class="section-header">
+                    <MudIcon Icon="@Icons.Material.Filled.Palette" Size="Size.Small" />
+                    <span class="ml-2">Platforms</span>
+                </div>
+                <div class="upcoming-legend">
+                    @foreach (Platform plat in PageLogic.Platforms)
+                    {
+                        int count = Service.GetCalendarBooks(_date.Year, _date.Month)
+                            .Count(b => b.Platform == plat);
+                        <div class="upcoming-legend-row">
+                            <span class="upcoming-legend-dot" style="background:@PageLogic.PlatColor(plat)"></span>
+                            <span class="upcoming-legend-name">@plat</span>
+                            <span class="upcoming-legend-count">@count release@(count != 1 ? "s" : "")</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </MudItem>
+    </MudGrid>
+
+</MudContainer>
+
+@code {
+    private DateTime _date = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+    private bool SameMonthYear => _date.Month == DateTime.Today.Month && _date.Year == DateTime.Today.Year;
+
+    private IEnumerable<int> CalDays
+    {
+        get
+        {
+            int dow = (int)_date.DayOfWeek;
+            int offset = dow == 0 ? 6 : dow - 1;
+            for (int i = 0; i < offset; i++) yield return 0;
+            for (int d = 1; d <= DateTime.DaysInMonth(_date.Year, _date.Month); d++) yield return d;
+        }
+    }
+
+    private List<BookEntry> BooksOnDay(int day)
+    {
+        DateTime target = new(_date.Year, _date.Month, day);
+        return Service.Books
+            .Where(b => b.NextExpected.HasValue
+                && PageLogic.ProjectedReleaseDays(b.NextExpected, b.ReleaseCycleDays, target, target, b.ReleaseWeekdayMask).Count > 0)
+            .ToList();
+    }
+
+    private void PrevMonth() => _date = _date.AddMonths(-1);
+    private void NextMonth() => _date = _date.AddMonths(1);
+    private void GoToday() => _date = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+}
