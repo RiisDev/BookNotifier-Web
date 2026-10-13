@@ -408,3 +408,5 @@ FodyWeavers.xsd
 .qodo
 *.pfx
 /data/*
+# git matches case-insensitively on Windows, so the line above also hides the Data/ source folder; keep its code
+!/Data/*.cs
