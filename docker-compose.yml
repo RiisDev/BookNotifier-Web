@@ -20,7 +20,7 @@ services:
       retries: 3
       start_period: 15s
 
-  # FlareSolverr — needed for ScribbleHub and AO3 (Cloudflare-protected).
+  # FlareSolverr — needed for ScribbleHub, AO3 and RoyalRoad (Cloudflare-protected).
   # The setup wizard auto-detects this and fills it in as: http://flaresolverr:8191/v1
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest

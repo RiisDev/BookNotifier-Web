@@ -74,6 +74,10 @@
                     <input class="settings-input" type="url"
                            placeholder="http://localhost:8191/v1"
                            @bind="_s.FlareSolverUrl" />
+                    @if (FlareSolverMissing)
+                    {
+                        <div class="settings-hint" style="color:#cf6679">Required for @string.Join(", ", FlareSolverPlatforms) — they won't run without it.</div>
+                    }
                 </div>
             </div>
 
@@ -261,6 +265,16 @@
         if (_s.EnabledNotifiers.Contains(key)) _s.EnabledNotifiers.Remove(key);
         else _s.EnabledNotifiers.Add(key);
     }
+
+    private static readonly Dictionary<string, string> FlareSolverNeeds = new()
+    {
+        ["scribblehub"] = "ScribbleHub", ["royalroad"] = "Royal Road", ["aothree"] = "AO3"
+    };
+
+    private IEnumerable<string> FlareSolverPlatforms =>
+        FlareSolverNeeds.Where(kv => _s.EnabledNotifiers.Contains(kv.Key)).Select(kv => kv.Value);
+
+    private bool FlareSolverMissing => string.IsNullOrWhiteSpace(_s.FlareSolverUrl) && FlareSolverPlatforms.Any();
 
     private async Task Save()
     {

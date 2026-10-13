@@ -177,13 +177,13 @@ namespace BookNotifier_Web.Components.Pages
 		private async Task<(bool Ok, string Msg)> VerifyRoyalRoadAsync()
 		{
 			if (string.IsNullOrWhiteSpace(_s.RoyalRoadUserId)) return (false, "Enter your Royal Road user ID first.");
-			return await HeadCheckAsync(
+			return await FlareSolverCheckAsync(_s.FlareSolverUrl,
 				$"https://www.royalroad.com/profile/{Uri.EscapeDataString(_s.RoyalRoadUserId)}",
 				$"Profile {_s.RoyalRoadUserId} found.",
 				"Profile not found — check your user ID.");
 		}
 
-		// AO3 and ScribbleHub sit behind Cloudflare — a direct request 503s regardless of whether
+		// AO3, ScribbleHub and RoyalRoad sit behind Cloudflare — a direct request 503s regardless of whether
 		// the account is real, so verifying them has to go through FlareSolverr, same as the CLI does.
 		private async Task<(bool Ok, string Msg)> VerifyAo3Async()
 		{

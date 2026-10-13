@@ -3,7 +3,7 @@ namespace BookNotifier_Web.Models
 	// Shapes of the JSON caches written by the BookNotifier CLI (RiisDev/BookNotifier) into its own
 	// <exe-dir>/data/*.json. Duplicated here (not shared via project reference) because the CLI is a
 	// separate process/repo we only talk to over its file-based contract.
-	public record CliGoodReadsBook(string Title, string AuthorName, string Url, string? SeriesName, int? SeriesPosition,
+	public record CliGoodReadsBook(string Title, string AuthorName, string Url, string? SeriesName, double? SeriesPosition,
 		DateTime? PublishedAt = null, string? CoverUrl = null, string Status = "unknown");
 
 	public record CliChapter(string Title, string Link, string Id, DateTime? ReleasedAt = null);

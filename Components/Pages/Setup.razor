@@ -129,6 +129,11 @@
                     <input class="setup-input" type="text" placeholder="123456" @bind="_s.RoyalRoadUserId" @bind:event="oninput" />
                 </div>
                 <div class="setup-field" style="margin-top:16px">
+                    <label class="setup-label">FlareSolverr URL </label>
+                    <p class="setup-hint">FlareSolverr is required for Royal Road</p>
+                    <input class="setup-input" type="url" placeholder="http://localhost:8191/v1" @bind="_s.FlareSolverUrl" @bind:event="oninput" />
+                </div>
+                <div class="setup-field" style="margin-top:16px">
                     <label class="setup-label">Check Every (minutes)</label>
                     <input class="setup-input" type="number" min="1" @bind="RoyalRoadRecheckMinutes" @bind:event="oninput" />
                 </div>
